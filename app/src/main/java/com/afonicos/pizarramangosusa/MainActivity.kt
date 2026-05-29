@@ -16,7 +16,8 @@ import com.afonicos.pizarramangosusa.ui.theme.PizarraMangosUSATheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        val viewModel = com.afonicos.pizarramangosusa.model.MangosViewModel()
+        viewModel.registrarNuevaCompra("Productor de Prueba (Fuego)", 15.5, 25000.0)
         setContent {
             PizarraMangosUSATheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
