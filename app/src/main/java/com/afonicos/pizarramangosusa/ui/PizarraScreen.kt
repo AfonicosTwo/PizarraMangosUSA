@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +29,7 @@ fun PizarraScreen(viewModel: MangosViewModel) {
     val listaCompras by viewModel.compras.collectAsState()
     val totalToneladas by viewModel.totalToneladas.collectAsState()
     val totalDinero by viewModel.totalDinero.collectAsState()
+
 
     var mostrarDialogo by remember { mutableStateOf(false) }
     var compraAEditar by remember { mutableStateOf<com.afonicos.pizarramangosusa.model.CompraTransaccion?>(null) }
@@ -56,27 +58,97 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+
+            val metaToneladas by viewModel.metaToneladas.collectAsState()
+            var mostrarDialogoMeta by remember { mutableStateOf(false) }
+
+            // Cálculo del progreso (evita dividir entre cero)
+            val progreso = if (metaToneladas > 0) (totalToneladas / metaToneladas).toFloat() else 0f
+
+            // Tarjeta de Contadores y Meta
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                onClick = { mostrarDialogoMeta = true } // Al tocar la tarjeta, pedirá la meta
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp)
                 ) {
-                    Column {
-                        Text("Total Toneladas", style = MaterialTheme.typography.labelMedium)
-                        Text("${totalToneladas} T", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Total / Meta", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                text = "${totalToneladas} / ${if (metaToneladas > 0) metaToneladas else "?"} T",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Inversión del Día", style = MaterialTheme.typography.labelMedium)
+                            Text("$$totalDinero", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Inversión del Día", style = MaterialTheme.typography.labelMedium)
-                        Text("$${totalDinero}", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Barra de progreso dinámica
+                    LinearProgressIndicator(
+                        progress = { progreso.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(8.dp),
+                        color = if (progreso >= 1f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                        trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f)
+                    )
+
+                    if (progreso >= 1f && metaToneladas > 0) {
+                        Text(
+                            text = "¡Meta diaria alcanzada!",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = 4.dp).align(Alignment.CenterHorizontally)
+                        )
+                    } else if (metaToneladas == 0.0) {
+                        Text(
+                            text = "Toca aquí para establecer la meta del día",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = 4.dp).align(Alignment.CenterHorizontally)
+                        )
                     }
                 }
             }
 
+            // --- DIÁLOGO PARA DEFINIR LA META (Va dentro del Column, justo debajo del Card) ---
+            if (mostrarDialogoMeta) {
+                var metaInput by remember { mutableStateOf(if (metaToneladas > 0) metaToneladas.toString() else "") }
+
+                AlertDialog(
+                    onDismissRequest = { mostrarDialogoMeta = false },
+                    title = { Text("Establecer Meta Diaria") },
+                    text = {
+                        OutlinedTextField(
+                            value = metaInput,
+                            onValueChange = { metaInput = it },
+                            label = { Text("Toneladas objetivo") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            val nuevaMeta = metaInput.toDoubleOrNull() ?: 0.0
+                            if (nuevaMeta > 0) {
+                                viewModel.guardarMetaDiaria(nuevaMeta)
+                                mostrarDialogoMeta = false
+                            }
+                        }) { Text("Guardar Meta") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { mostrarDialogoMeta = false }) { Text("Cancelar") }
+                    }
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             if (listaCompras.isEmpty()) {

@@ -15,28 +15,30 @@ import java.util.Locale
 class MangosViewModel : ViewModel() {
     private val repository = MangosRepository()
 
-    // 1. Estado de la Pizarra (La lista de transacciones que verá la pantalla)
     private val _compras = MutableStateFlow<List<CompraTransaccion>>(emptyList())
     val compras: StateFlow<List<CompraTransaccion>> = _compras.asStateFlow()
 
-    // 2. Estado de los Totales (Contador de Progreso)
     private val _totalToneladas = MutableStateFlow(0.0)
     val totalToneladas: StateFlow<Double> = _totalToneladas.asStateFlow()
 
     private val _totalDinero = MutableStateFlow(0.0)
     val totalDinero: StateFlow<Double> = _totalDinero.asStateFlow()
 
-    private var firebaseListener: ListenerRegistration? = null
+    // --- NUEVO ESTADO: La meta diaria ---
+    private val _metaToneladas = MutableStateFlow(0.0)
+    val metaToneladas: StateFlow<Double> = _metaToneladas.asStateFlow()
 
-    // Genera automáticamente la fecha de hoy con el formato exacto de nuestro documento
+    private var firebaseListener: ListenerRegistration? = null
+    private var firebaseJornadaListener: ListenerRegistration? = null // Escucha el documento del día
+
     private val fechaHoy = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
     init {
-        // En cuanto el ViewModel nace, empieza a escuchar la base de datos
         iniciarSincronizacionTiempoReal()
     }
 
     private fun iniciarSincronizacionTiempoReal() {
+        // 1. Escuchar la lista de compras
         firebaseListener = repository.obtenerReferenciaCompras(fechaHoy)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) return@addSnapshotListener
@@ -45,7 +47,6 @@ class MangosViewModel : ViewModel() {
                 var sumaTons = 0.0
                 var sumaDinero = 0.0
 
-                // Firebase nos entrega los documentos nuevos y calculamos los totales
                 for (documento in snapshot.documents) {
                     val compra = documento.toObject(CompraTransaccion::class.java)
                     if (compra != null) {
@@ -54,15 +55,20 @@ class MangosViewModel : ViewModel() {
                         sumaDinero += compra.monto_total
                     }
                 }
-
-                // Actualizamos los flujos (Jetpack Compose redibujará la pantalla automáticamente al ver este cambio)
                 _compras.value = listaTemporal
                 _totalToneladas.value = sumaTons
                 _totalDinero.value = sumaDinero
             }
+
+        // 2. Escuchar la meta diaria
+        firebaseJornadaListener = repository.obtenerReferenciaJornada(fechaHoy)
+            .addSnapshotListener { snapshot, error ->
+                if (error == null && snapshot != null && snapshot.exists()) {
+                    _metaToneladas.value = snapshot.getDouble("meta_toneladas") ?: 0.0
+                }
+            }
     }
 
-    // Funciones que llamarán los botones de la Interfaz Gráfica
     fun registrarNuevaCompra(proveedor: String, toneladas: Double, monto: Double) {
         viewModelScope.launch {
             val nuevaCompra = CompraTransaccion(
@@ -80,16 +86,22 @@ class MangosViewModel : ViewModel() {
         }
     }
 
-    // Ahora la función está DENTRO de la clase y usa fechaHoy
     fun actualizarCompra(id: String, proveedor: String, toneladas: Double, monto: Double) {
         viewModelScope.launch {
             repository.actualizarCompra(fechaHoy, id, proveedor, toneladas, monto)
         }
     }
 
-    // Evita fugas de memoria apagando el micrófono de Firebase si la app se cierra
+    // --- NUEVA FUNCIÓN: Guardar la meta ---
+    fun guardarMetaDiaria(meta: Double) {
+        viewModelScope.launch {
+            repository.establecerMetaDiaria(fechaHoy, meta)
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         firebaseListener?.remove()
+        firebaseJornadaListener?.remove()
     }
 }
