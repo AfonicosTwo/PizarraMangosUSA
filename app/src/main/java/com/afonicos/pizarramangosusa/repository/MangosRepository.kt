@@ -47,4 +47,25 @@ class MangosRepository {
             .delete()
             .await()
     }
+    suspend fun actualizarCompra(
+        fechaJornada: String,
+        idCompra: String,
+        proveedor: String,
+        toneladas: Double,
+        monto: Double
+    ) {
+        // Creamos un diccionario estrictamente con los campos que deseamos modificar
+        val camposActualizados = mapOf(
+            "proveedor" to proveedor,
+            "volumen_toneladas" to toneladas,
+            "monto_total" to monto
+        )
+
+        // Navegamos por la jerarquía hasta el documento exacto y aplicamos la actualización
+        jornadasCollection.document(fechaJornada)
+            .collection("compras")
+            .document(idCompra)
+            .update(camposActualizados)
+            .await()
+    }
 }

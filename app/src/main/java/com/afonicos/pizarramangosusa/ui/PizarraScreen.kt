@@ -1,27 +1,36 @@
 package com.afonicos.pizarramangosusa.ui
 
+// --- TODAS LAS IMPORTACIONES AGRUPADAS EN LA PARTE SUPERIOR ---
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.afonicos.pizarramangosusa.R
 import com.afonicos.pizarramangosusa.model.MangosViewModel
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PizarraScreen(viewModel: MangosViewModel) {
-    // Observadores de la base de datos en tiempo real
     val listaCompras by viewModel.compras.collectAsState()
     val totalToneladas by viewModel.totalToneladas.collectAsState()
     val totalDinero by viewModel.totalDinero.collectAsState()
 
-    // Variable para controlar si el formulario emergente es visible
     var mostrarDialogo by remember { mutableStateOf(false) }
+    var compraAEditar by remember { mutableStateOf<com.afonicos.pizarramangosusa.model.CompraTransaccion?>(null) }
 
     Scaffold(
         topBar = {
@@ -47,7 +56,6 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Tarjeta de Contadores (Total de Toneladas y Dinero)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -71,7 +79,6 @@ fun PizarraScreen(viewModel: MangosViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Lista de Transacciones de la jornada
             if (listaCompras.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No hay compras registradas el día de hoy", style = MaterialTheme.typography.bodyLarge)
@@ -82,39 +89,34 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(listaCompras) { compra ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(text = compra.proveedor, fontWeight = FontWeight.Bold)
-                                    Text(text = "$${compra.monto_total}", style = MaterialTheme.typography.bodyMedium)
-                                }
-                                Text(
-                                    text = "${compra.volumen_toneladas} T",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Black
-                                )
+                        TarjetaTransaccionSwipeable(
+                            compra = compra,
+                            alEditar = {
+                                compraAEditar = compra
+                            },
+                            alEliminar = {
+                                viewModel.eliminarCompra(compra.id)
                             }
-                        }
+                        )
                     }
                 }
             }
         }
 
-        // Formulario Emergente para capturar una nueva compra
         if (mostrarDialogo) {
             FormularioCompraDialog(
                 alCerrar = { mostrarDialogo = false },
                 alGuardar = { proveedor, toneladas, monto ->
                     viewModel.registrarNuevaCompra(proveedor, toneladas, monto)
+                }
+            )
+        }
+        compraAEditar?.let { compra ->
+            EdicionCompraDialog(
+                compra = compra,
+                alCerrar = { compraAEditar = null },
+                alActualizar = { proveedor, toneladas, monto ->
+                    viewModel.actualizarCompra(compra.id, proveedor, toneladas, monto)
                 }
             )
         }
@@ -178,6 +180,139 @@ fun FormularioCompraDialog(
             TextButton(onClick = alCerrar) {
                 Text("Cancelar")
             }
+        }
+    )
+}
+
+@Composable
+fun TarjetaTransaccionSwipeable(
+    compra: com.afonicos.pizarramangosusa.model.CompraTransaccion,
+    alEditar: () -> Unit,
+    alEliminar: () -> Unit
+) {
+    var offsetX by remember { mutableStateOf(0f) }
+    val animatedOffsetX by animateFloatAsState(targetValue = offsetX, label = "swipe")
+
+    val limiteDeslizamiento = -300f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(
+                onClick = {
+                    offsetX = 0f
+                    alEditar()
+                },
+                modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
+            ) {
+                Icon(painterResource(id = R.drawable.escritura), contentDescription = "Editar", modifier = Modifier.size(24.dp))
+            }
+
+            IconButton(
+                onClick = {
+                    offsetX = 0f
+                    alEliminar()
+                },
+                modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(8.dp))
+            ) {
+                Icon(painterResource(id = R.drawable.papelera), contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            offsetX = if (offsetX < limiteDeslizamiento / 2) limiteDeslizamiento else 0f
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        val nuevoOffset = offsetX + dragAmount
+                        offsetX = nuevoOffset.coerceIn(limiteDeslizamiento, 0f)
+                    }
+                },
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(text = compra.proveedor, fontWeight = FontWeight.Bold)
+                    Text(text = "$${compra.monto_total}", style = MaterialTheme.typography.bodyMedium)
+                }
+                Text(
+                    text = "${compra.volumen_toneladas} T",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EdicionCompraDialog(
+    compra: com.afonicos.pizarramangosusa.model.CompraTransaccion,
+    alCerrar: () -> Unit,
+    alActualizar: (String, Double, Double) -> Unit
+) {
+    // Iniciamos los estados con los valores actuales de la compra
+    var proveedor by remember { mutableStateOf(compra.proveedor) }
+    var toneladas by remember { mutableStateOf(compra.volumen_toneladas.toString()) }
+    var monto by remember { mutableStateOf(compra.monto_total.toString()) }
+
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        title = { Text("Editar Transacción") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = proveedor,
+                    onValueChange = { proveedor = it },
+                    label = { Text("Proveedor") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = toneladas,
+                    onValueChange = { toneladas = it },
+                    label = { Text("Toneladas") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = monto,
+                    onValueChange = { monto = it },
+                    label = { Text("Monto Total") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val ton = toneladas.toDoubleOrNull() ?: 0.0
+                val mon = monto.toDoubleOrNull() ?: 0.0
+                if (proveedor.isNotBlank() && ton > 0 && mon > 0) {
+                    alActualizar(proveedor, ton, mon)
+                    alCerrar()
+                }
+            }) { Text("Actualizar") }
+        },
+        dismissButton = {
+            TextButton(onClick = alCerrar) { Text("Cancelar") }
         }
     )
 }

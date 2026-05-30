@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.ListenerRegistration
 import com.afonicos.pizarramangosusa.repository.MangosRepository
-import com.afonicos.pizarramangosusa.model.CompraTransaccion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,6 +77,13 @@ class MangosViewModel : ViewModel() {
     fun eliminarCompra(idCompra: String) {
         viewModelScope.launch {
             repository.eliminarCompra(fechaHoy, idCompra)
+        }
+    }
+
+    // Ahora la función está DENTRO de la clase y usa fechaHoy
+    fun actualizarCompra(id: String, proveedor: String, toneladas: Double, monto: Double) {
+        viewModelScope.launch {
+            repository.actualizarCompra(fechaHoy, id, proveedor, toneladas, monto)
         }
     }
 
