@@ -11,21 +11,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.afonicos.pizarramangosusa.ui.PizarraScreen
 import com.afonicos.pizarramangosusa.ui.theme.PizarraMangosUSATheme
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val viewModel = com.afonicos.pizarramangosusa.model.MangosViewModel()
-        viewModel.registrarNuevaCompra("Productor de Prueba (Fuego)", 15.5, 25000.0)
+
         setContent {
             PizarraMangosUSATheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                PizarraScreen(viewModel = viewModel)
             }
         }
     }
