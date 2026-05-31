@@ -26,7 +26,7 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> Unit) {
+fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: () -> Unit) {
     val listaCompras by viewModel.compras.collectAsState()
     val totalToneladas by viewModel.totalToneladas.collectAsState()
     val totalDinero by viewModel.totalDinero.collectAsState()
@@ -34,6 +34,7 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
     val metaToneladas by viewModel.metaToneladas.collectAsState()
     var mostrarDialogo by remember { mutableStateOf(false) }
     var compraAEditar by remember { mutableStateOf<com.afonicos.pizarramangosusa.model.CompraTransaccion?>(null) }
+    var mostrarPerfil by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -44,13 +45,14 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                     titleContentColor = Color.White
                 ),
                 actions = {
-                    Image(
-                        painter = painterResource(id = R.drawable.logo_mangos),
-                        contentDescription = "Logo Corporativo Mangos USA",
-                        modifier = Modifier
-                            .size(56.dp)
-                            .padding(end = 16.dp)
-                    )
+                    IconButton(onClick = { mostrarPerfil=true}) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.persona),
+                            contentDescription = "Perfil de Usuario",
+                            modifier = Modifier.size(32.dp),
+                            tint = Color.White
+                        )
+                    }
                 }
             )
         },
@@ -60,44 +62,32 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween // Separa al hijo 1 del hijo 2
             ) {
+                // HIJO 1: Botón PDF (Se irá a la izquierda)
                 FloatingActionButton(
-                    onClick = onLogout,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.error
+                    onClick = {
+                        generarReporteJornadaPDF(
+                            context = context,
+                            listaCompras = listaCompras,
+                            totalToneladas = totalToneladas,
+                            totalDinero = totalDinero,
+                            metaToneladas = metaToneladas
+                        )
+                    },
+                    containerColor = Color(0xFF2E7D32),
+                    contentColor = Color.White
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.salida),
-                        contentDescription = "Cerrar sesión",
+                        painter = painterResource(id = R.drawable.participacion),
+                        contentDescription = "Exportar reporte",
                         modifier = Modifier.size(28.dp)
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FloatingActionButton(
-                        onClick = {
-                            generarReporteJornadaPDF(
-                                context = context,
-                                listaCompras = listaCompras,
-                                totalToneladas = totalToneladas,
-                                totalDinero = totalDinero,
-                                metaToneladas = metaToneladas
-                            )
-                        },
-                        containerColor = Color(0xFF2E7D32),
-                        contentColor = Color.White
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.participacion),
-                            contentDescription = "Exportar reporte PDF",
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    FloatingActionButton(onClick = { mostrarDialogo = true }) {
-                        Text("+", fontSize = 24.sp)
-                    }
+                // HIJO 2: Botón Agregar (Se irá a la derecha)
+                FloatingActionButton(onClick = { mostrarDialogo = true }) {
+                    Text("+", fontSize = 24.sp)
                 }
             }
         }
@@ -242,6 +232,16 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                 }
             )
         }
+    }
+    if (mostrarPerfil) {
+        PerfilDialog(
+            userRole = userRole,
+            alCerrar = { mostrarPerfil = false },
+            alCerrarSesion = {
+                mostrarPerfil = false
+                onProfileClick() // Usaremos este parámetro para avisarle a MainActivity que cierre sesión
+            }
+        )
     }
 }
 
@@ -434,6 +434,65 @@ fun EdicionCompraDialog(
         },
         dismissButton = {
             TextButton(onClick = alCerrar) { Text("Cancelar") }
+        }
+    )
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PerfilDialog(
+    userRole: String,
+    alCerrar: () -> Unit,
+    alCerrarSesion: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        modifier = Modifier.fillMaxWidth(),
+        title = {
+            Text("Perfil de Usuario", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.persona),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp),
+                    tint = Color(0xFF2E7D32)
+                )
+
+                Text(
+                    text = "Rol actual: ${userRole.uppercase()}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Aquí luego agregaremos la lógica de cambiar contraseña
+                Button(
+                    onClick = { /* Pendiente: Lógica de contraseña */ },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Cambiar Contraseña")
+                }
+
+                OutlinedButton(
+                    onClick = alCerrarSesion,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Cerrar Sesión", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = alCerrar) {
+                Text("Volver a la Pizarra")
+            }
         }
     )
 }

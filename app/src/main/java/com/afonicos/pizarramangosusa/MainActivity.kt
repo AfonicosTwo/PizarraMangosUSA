@@ -4,7 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,17 +26,42 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inicializamos tu ViewModel una sola vez aquí arriba
         val viewModel = com.afonicos.pizarramangosusa.model.MangosViewModel()
 
         setContent {
             PizarraMangosUSATheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-
-                    var isLoggedIn by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser != null) }
+                    val auth = FirebaseAuth.getInstance()
+                    var isLoggedIn by remember { mutableStateOf(auth.currentUser != null) }
                     var userRole by remember { mutableStateOf("") }
 
-                    if (!isLoggedIn) {
+                    // Nueva variable para mostrar pantalla de carga mientras buscamos el rol
+                    var isCheckingRole by remember { mutableStateOf(auth.currentUser != null) }
+
+                    // SOLUCIÓN PUNTO 4: Recuperar el rol silenciosamente si ya hay sesión iniciada
+                    LaunchedEffect(auth.currentUser) {
+                        if (auth.currentUser != null) {
+                            val db = FirebaseFirestore.getInstance()
+                            db.collection("usuarios").document(auth.currentUser!!.uid).get()
+                                .addOnSuccessListener { document ->
+                                    userRole = document.getString("rol") ?: "capturista"
+                                    isCheckingRole = false // Terminó de cargar, ya puede mostrar la Pizarra
+                                }
+                                .addOnFailureListener {
+                                    userRole = "capturista" // Seguridad por defecto si falla el internet
+                                    isCheckingRole = false
+                                }
+                        } else {
+                            isCheckingRole = false
+                        }
+                    }
+
+                    if (isCheckingRole) {
+                        // Pantalla de carga suave mientras averigua los permisos en Firebase
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color(0xFF2E7D32))
+                        }
+                    } else if (!isLoggedIn) {
                         LoginScreen(
                             modifier = Modifier.padding(innerPadding),
                             onLoginSuccess = { rol ->
@@ -46,9 +73,10 @@ class MainActivity : ComponentActivity() {
                         PizarraScreen(
                             viewModel = viewModel,
                             userRole = userRole,
-                            onLogout = {
-                                FirebaseAuth.getInstance().signOut()
+                            onProfileClick = {
+                                auth.signOut()
                                 isLoggedIn = false
+                                userRole = "" // Limpiamos el rol por seguridad al salir
                             }
                         )
                     }
@@ -56,6 +84,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
 // ===================================================================
 // PANTALLA DE LOGIN
@@ -73,7 +102,8 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()), // SOLUCIÓN PUNTO 5: Permite que la pantalla se deslice si estorba el teclado
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -116,11 +146,11 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
             singleLine = true
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (errorMessage != null) {
-            Text(text = errorMessage!!, color = Color.Red, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
+        // SOLUCIÓN PUNTO 5: Reservamos el espacio para el error con un Box fijo
+        Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
+            if (errorMessage != null) {
+                Text(text = errorMessage!!, color = Color.Red, fontWeight = FontWeight.Bold)
+            }
         }
 
         Button(
@@ -163,7 +193,6 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
             } else {
                 Text("INICIAR SESIÓN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
