@@ -1,0 +1,57 @@
+package com.afonicos.pizarramangosusa
+
+import android.content.Context
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
+import android.os.Environment
+import android.widget.Toast
+import com.afonicos.pizarramangosusa.model.CompraTransaccion
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+fun generarReporteJornadaPDF(
+    context: Context,
+    listaCompras: List<CompraTransaccion>,
+    totalToneladas: Double,
+    totalDinero: Double,
+    metaToneladas: Double
+) {
+    val pdfDocument = PdfDocument()
+    val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+    val page = pdfDocument.startPage(pageInfo)
+    val canvas = page.canvas
+
+    val paintTitulo = Paint().apply { textSize = 24f; typeface = Typeface.DEFAULT_BOLD }
+    val paintNormal = Paint().apply { textSize = 14f }
+
+    val fechaHoy = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+    var y = 50f
+
+    canvas.drawText("Reporte de Jornada - Mangos U.S.A.", 50f, y, paintTitulo)
+    y += 40f
+    canvas.drawText("Fecha: $fechaHoy", 50f, y, paintNormal)
+    y += 20f
+    canvas.drawText("Meta: $metaToneladas T | Total: $totalToneladas T", 50f, y, paintNormal)
+    y += 40f
+
+    for (compra in listaCompras) {
+        canvas.drawText("- ${compra.proveedor}: ${compra.volumen_toneladas} T ($${compra.monto_total})", 50f, y, paintNormal)
+        y += 25f
+    }
+
+    pdfDocument.finishPage(page)
+
+    try {
+        val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Reporte_${System.currentTimeMillis()}.pdf")
+        pdfDocument.writeTo(FileOutputStream(file))
+        Toast.makeText(context, "PDF guardado en Descargas", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+    } finally {
+        pdfDocument.close()
+    }
+}

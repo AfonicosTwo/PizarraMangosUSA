@@ -1,5 +1,6 @@
 package com.afonicos.pizarramangosusa.ui
 
+import com.afonicos.pizarramangosusa.generarReporteJornadaPDF
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
@@ -31,8 +32,8 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
     val listaCompras by viewModel.compras.collectAsState()
     val totalToneladas by viewModel.totalToneladas.collectAsState()
     val totalDinero by viewModel.totalDinero.collectAsState()
-
-
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val metaToneladas by viewModel.metaToneladas.collectAsState()
     var mostrarDialogo by remember { mutableStateOf(false) }
     var compraAEditar by remember { mutableStateOf<com.afonicos.pizarramangosusa.model.CompraTransaccion?>(null) }
 
@@ -56,15 +57,15 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                 }
             )
         },
-        floatingActionButtonPosition = FabPosition.Center, // Centramos el contenedor principal
+        floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween // Separa los botones a los extremos
+                horizontalArrangement = Arrangement.SpaceBetween // Esto separa el de la izq y el de la der
             ) {
-                // Botón flotante izquierdo (Cerrar sesión)
+                // 1. Botón flotante izquierdo (Cerrar sesión)
                 FloatingActionButton(
                     onClick = onLogout,
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -77,9 +78,33 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                     )
                 }
 
-                // Botón flotante derecho (Agregar transacción)
-                FloatingActionButton(onClick = { mostrarDialogo = true }) {
-                    Text("+", fontSize = 24.sp)
+                // NUEVO: Fila interna para agrupar los botones de la derecha
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // 2. Botón flotante central/derecho (Exportar PDF)
+                    FloatingActionButton(
+                        onClick = {
+                            generarReporteJornadaPDF(
+                                context = context,
+                                listaCompras = listaCompras,
+                                totalToneladas = totalToneladas,
+                                totalDinero = totalDinero,
+                                metaToneladas = metaToneladas
+                            )
+                        },
+                        containerColor = Color(0xFF2E7D32),
+                        contentColor = Color.White
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.participacion),
+                            contentDescription = "Exportar reporte PDF",
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    // 3. Botón flotante derecho (Agregar transacción)
+                    FloatingActionButton(onClick = { mostrarDialogo = true }) {
+                        Text("+", fontSize = 24.sp)
+                    }
                 }
             }
         }
