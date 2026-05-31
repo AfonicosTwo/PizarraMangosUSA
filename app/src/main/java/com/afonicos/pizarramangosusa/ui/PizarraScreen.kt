@@ -8,7 +8,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -42,17 +40,16 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
             TopAppBar(
                 title = { Text("Pizarra Transaccional") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    // USAMOS EL VERDE CORPORATIVO QUE SAMANTHA USÓ EN EL BOTÓN
                     containerColor = Color(0xFF2E7D32),
-                    titleContentColor = Color.White // Blanco para contraste
+                    titleContentColor = Color.White
                 ),
-                actions = { // <-- NUEVO: Ponemos el logo aquí (arriba a la derecha)
+                actions = {
                     Image(
                         painter = painterResource(id = R.drawable.logo_mangos),
                         contentDescription = "Logo Corporativo Mangos USA",
                         modifier = Modifier
-                            .size(56.dp) // Ajuste el tamaño para que quepa en la barra (M3 header es ~64dp)
-                            .padding(end = 16.dp) // Margen derecho
+                            .size(56.dp)
+                            .padding(end = 16.dp)
                     )
                 }
             )
@@ -63,9 +60,8 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween // Esto separa el de la izq y el de la der
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // 1. Botón flotante izquierdo (Cerrar sesión)
                 FloatingActionButton(
                     onClick = onLogout,
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -78,9 +74,7 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                     )
                 }
 
-                // NUEVO: Fila interna para agrupar los botones de la derecha
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // 2. Botón flotante central/derecho (Exportar PDF)
                     FloatingActionButton(
                         onClick = {
                             generarReporteJornadaPDF(
@@ -101,7 +95,6 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
                         )
                     }
 
-                    // 3. Botón flotante derecho (Agregar transacción)
                     FloatingActionButton(onClick = { mostrarDialogo = true }) {
                         Text("+", fontSize = 24.sp)
                     }
@@ -118,10 +111,8 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
             val metaToneladas by viewModel.metaToneladas.collectAsState()
             var mostrarDialogoMeta by remember { mutableStateOf(false) }
 
-            // Cálculo del progreso (evita dividir entre cero)
             val progreso = if (metaToneladas > 0) (totalToneladas / metaToneladas).toFloat() else 0f
 
-            // Tarjeta de Contadores y Meta
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -215,7 +206,8 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> 
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 80.dp) // Espacio extra al final para que los FABs no tapen nada
                 ) {
                     items(listaCompras) { compra ->
                         TarjetaTransaccionSwipeable(
@@ -401,7 +393,6 @@ fun EdicionCompraDialog(
     alCerrar: () -> Unit,
     alActualizar: (String, Double, Double) -> Unit
 ) {
-    // Iniciamos los estados con los valores actuales de la compra
     var proveedor by remember { mutableStateOf(compra.proveedor) }
     var toneladas by remember { mutableStateOf(compra.volumen_toneladas.toString()) }
     var monto by remember { mutableStateOf(compra.monto_total.toString()) }
