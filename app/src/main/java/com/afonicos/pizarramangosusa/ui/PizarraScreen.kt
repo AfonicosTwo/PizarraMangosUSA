@@ -1,6 +1,8 @@
 package com.afonicos.pizarramangosusa.ui
 
-// --- TODAS LAS IMPORTACIONES AGRUPADAS EN LA PARTE SUPERIOR ---
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -25,7 +27,7 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PizarraScreen(viewModel: MangosViewModel) {
+fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onLogout: () -> Unit) {
     val listaCompras by viewModel.compras.collectAsState()
     val totalToneladas by viewModel.totalToneladas.collectAsState()
     val totalDinero by viewModel.totalDinero.collectAsState()
@@ -39,16 +41,46 @@ fun PizarraScreen(viewModel: MangosViewModel) {
             TopAppBar(
                 title = { Text("Pizarra Transaccional") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    // USAMOS EL VERDE CORPORATIVO QUE SAMANTHA USÓ EN EL BOTÓN
+                    containerColor = Color(0xFF2E7D32),
+                    titleContentColor = Color.White // Blanco para contraste
+                ),
+                actions = { // <-- NUEVO: Ponemos el logo aquí (arriba a la derecha)
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_mangos),
+                        contentDescription = "Logo Corporativo Mangos USA",
+                        modifier = Modifier
+                            .size(56.dp) // Ajuste el tamaño para que quepa en la barra (M3 header es ~64dp)
+                            .padding(end = 16.dp) // Margen derecho
+                    )
+                }
             )
         },
+        floatingActionButtonPosition = FabPosition.Center, // Centramos el contenedor principal
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                mostrarDialogo = true
-            }) {
-                Text("+", fontSize = 24.sp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween // Separa los botones a los extremos
+            ) {
+                // Botón flotante izquierdo (Cerrar sesión)
+                FloatingActionButton(
+                    onClick = onLogout,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.error
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.salida),
+                        contentDescription = "Cerrar sesión",
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Botón flotante derecho (Agregar transacción)
+                FloatingActionButton(onClick = { mostrarDialogo = true }) {
+                    Text("+", fontSize = 24.sp)
+                }
             }
         }
     ) { paddingValues ->
@@ -58,7 +90,6 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-
             val metaToneladas by viewModel.metaToneladas.collectAsState()
             var mostrarDialogoMeta by remember { mutableStateOf(false) }
 
@@ -69,8 +100,11 @@ fun PizarraScreen(viewModel: MangosViewModel) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                onClick = { mostrarDialogoMeta = true } // Al tocar la tarjeta, pedirá la meta
-            ) {
+                onClick = {
+                    if (userRole == "administrador") {
+                        mostrarDialogoMeta = true
+                    }
+                }            ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(16.dp)
                 ) {
@@ -94,11 +128,10 @@ fun PizarraScreen(viewModel: MangosViewModel) {
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Barra de progreso dinámica
                     LinearProgressIndicator(
                         progress = { progreso.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth().height(8.dp),
-                        color = if (progreso >= 1f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                        color = Color(0xFF2E7D32),
                         trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f)
                     )
 
@@ -111,7 +144,7 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                         )
                     } else if (metaToneladas == 0.0) {
                         Text(
-                            text = "Toca aquí para establecer la meta del día",
+                            text = if (userRole == "administrador") "Toca aquí para establecer la meta del día" else "Meta del día",
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(top = 4.dp).align(Alignment.CenterHorizontally)
                         )
@@ -119,7 +152,6 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                 }
             }
 
-            // --- DIÁLOGO PARA DEFINIR LA META (Va dentro del Column, justo debajo del Card) ---
             if (mostrarDialogoMeta) {
                 var metaInput by remember { mutableStateOf(if (metaToneladas > 0) metaToneladas.toString() else "") }
 
@@ -166,6 +198,7 @@ fun PizarraScreen(viewModel: MangosViewModel) {
                             alEditar = {
                                 compraAEditar = compra
                             },
+                            esAdministrador = (userRole == "administrador"),
                             alEliminar = {
                                 viewModel.eliminarCompra(compra.id)
                             }
@@ -259,14 +292,14 @@ fun FormularioCompraDialog(
 @Composable
 fun TarjetaTransaccionSwipeable(
     compra: com.afonicos.pizarramangosusa.model.CompraTransaccion,
+    esAdministrador: Boolean,
     alEditar: () -> Unit,
     alEliminar: () -> Unit
 ) {
     var offsetX by remember { mutableStateOf(0f) }
     val animatedOffsetX by animateFloatAsState(targetValue = offsetX, label = "swipe")
 
-    val limiteDeslizamiento = -300f
-
+    val limiteDeslizamiento = if (esAdministrador) -300f else 0f
     Box(
         modifier = Modifier
             .fillMaxWidth()

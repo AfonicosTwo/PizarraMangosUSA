@@ -31,12 +31,10 @@ class MainActivity : ComponentActivity() {
             PizarraMangosUSATheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
-                    // Variables de Samanta para controlar la navegación
                     var isLoggedIn by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser != null) }
                     var userRole by remember { mutableStateOf("") }
 
                     if (!isLoggedIn) {
-                        // 1. SI NO HA INICIADO SESIÓN: Mostramos la pantalla de Login de tu compañera
                         LoginScreen(
                             modifier = Modifier.padding(innerPadding),
                             onLoginSuccess = { rol ->
@@ -45,18 +43,22 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
-                        // 2. SI YA INICIÓ SESIÓN: Mostramos tu Pizarra Transaccional
-                        // Nota: No usamos innerPadding aquí porque PizarraScreen ya tiene su propio Scaffold
-                        PizarraScreen(viewModel = viewModel)
+                        PizarraScreen(
+                            viewModel = viewModel,
+                            userRole = userRole,
+                            onLogout = {
+                                FirebaseAuth.getInstance().signOut()
+                                isLoggedIn = false
+                            }
+                        )
                     }
                 }
             }
         }
     }
-}
 
 // ===================================================================
-// PANTALLA DE LOGIN (Construida por Samanta)
+// PANTALLA DE LOGIN
 // ===================================================================
 @Composable
 fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit) {
@@ -161,6 +163,7 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
             } else {
                 Text("INICIAR SESIÓN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
