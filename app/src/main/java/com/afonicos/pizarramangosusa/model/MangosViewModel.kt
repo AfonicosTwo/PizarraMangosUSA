@@ -24,12 +24,11 @@ class MangosViewModel : ViewModel() {
     private val _totalDinero = MutableStateFlow(0.0)
     val totalDinero: StateFlow<Double> = _totalDinero.asStateFlow()
 
-    // --- NUEVO ESTADO: La meta diaria ---
     private val _metaToneladas = MutableStateFlow(0.0)
     val metaToneladas: StateFlow<Double> = _metaToneladas.asStateFlow()
 
     private var firebaseListener: ListenerRegistration? = null
-    private var firebaseJornadaListener: ListenerRegistration? = null // Escucha el documento del día
+    private var firebaseJornadaListener: ListenerRegistration? = null
 
     private val fechaHoy = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 

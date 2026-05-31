@@ -14,11 +14,12 @@ import java.util.Date
 import java.util.Locale
 
 fun generarReporteJornadaPDF(
-    context: Context,
-    listaCompras: List<CompraTransaccion>,
+    context: android.content.Context,
+    listaCompras: List<com.afonicos.pizarramangosusa.model.CompraTransaccion>,
     totalToneladas: Double,
     totalDinero: Double,
-    metaToneladas: Double
+    metaToneladas: Double,
+    fechaJornada: String // <-- 1. NUEVO PARÁMETRO AQUÍ
 ) {
     val pdfDocument = PdfDocument()
     val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
@@ -28,15 +29,18 @@ fun generarReporteJornadaPDF(
     val paintTitulo = Paint().apply { textSize = 24f; typeface = Typeface.DEFAULT_BOLD }
     val paintNormal = Paint().apply { textSize = 14f }
 
+    val fechaDescarga = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+    var posicionY = 50f
     val fechaHoy = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
     var y = 50f
 
     canvas.drawText("Reporte de Jornada - Mangos U.S.A.", 50f, y, paintTitulo)
+    posicionY += 50f
     y += 40f
-    canvas.drawText("Fecha: $fechaHoy", 50f, y, paintNormal)
-    y += 20f
-    canvas.drawText("Meta: $metaToneladas T | Total: $totalToneladas T", 50f, y, paintNormal)
-    y += 40f
+    canvas.drawText("Fecha de la Jornada: $fechaJornada", 50f, posicionY, paintNormal)
+    posicionY += 20f
+    canvas.drawText("Reporte generado el: $fechaDescarga", 50f, posicionY, paintNormal)
+    posicionY += 40f
 
     for (compra in listaCompras) {
         canvas.drawText("- ${compra.proveedor}: ${compra.volumen_toneladas} T ($${compra.monto_total})", 50f, y, paintNormal)
