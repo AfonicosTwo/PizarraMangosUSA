@@ -16,5 +16,6 @@ data class CompraTransaccion(
     val proveedor: String = "",
     val volumen_toneladas: Double = 0.0,
     val monto_total: Double = 0.0,
-    val timestamp: Long = System.currentTimeMillis() // Para ordenar la pizarra cronológicamente
+    val timestamp: Long = System.currentTimeMillis(), // Para ordenar la pizarra cronológicamente
+    val capturista_correo: String = ""
 )

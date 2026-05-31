@@ -29,22 +29,33 @@ fun generarReporteJornadaPDF(
     val paintTitulo = Paint().apply { textSize = 24f; typeface = Typeface.DEFAULT_BOLD }
     val paintNormal = Paint().apply { textSize = 14f }
 
-    val fechaDescarga = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-    var posicionY = 50f
     val fechaHoy = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-    var y = 50f
+    val fechaDescarga = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
 
-    canvas.drawText("Reporte de Jornada - Mangos U.S.A.", 50f, y, paintTitulo)
+    var posicionY = 50f
+
+    canvas.drawText("Reporte de Jornada - Mangos", 50f, posicionY, paintTitulo)
+
     posicionY += 50f
-    y += 40f
+
     canvas.drawText("Fecha de la Jornada: $fechaJornada", 50f, posicionY, paintNormal)
-    posicionY += 20f
+
+    posicionY += 30f
+
     canvas.drawText("Reporte generado el: $fechaDescarga", 50f, posicionY, paintNormal)
+
+    posicionY += 40f
+
+    canvas.drawText("Meta: $metaToneladas T | Total: $totalToneladas T", 50f, posicionY, paintNormal)
+
     posicionY += 40f
 
     for (compra in listaCompras) {
-        canvas.drawText("- ${compra.proveedor}: ${compra.volumen_toneladas} T ($${compra.monto_total})", 50f, y, paintNormal)
-        y += 25f
+        // ... (Tu código del for se queda igual) {
+        canvas.drawText("- ${compra.proveedor}: ${compra.volumen_toneladas} T ($${compra.monto_total})", 50f, posicionY, paintNormal)
+        posicionY += 25f
+        canvas.drawText("Capturado por: ${compra.capturista_correo}", 50f, posicionY, paintNormal)
+        posicionY += 35f
     }
 
     pdfDocument.finishPage(page)

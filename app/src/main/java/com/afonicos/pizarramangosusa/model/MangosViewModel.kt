@@ -68,12 +68,13 @@ class MangosViewModel : ViewModel() {
             }
     }
 
-    fun registrarNuevaCompra(proveedor: String, toneladas: Double, monto: Double) {
+    fun registrarNuevaCompra(proveedor: String, toneladas: Double, monto: Double, correo: String) {
         viewModelScope.launch {
             val nuevaCompra = CompraTransaccion(
                 proveedor = proveedor,
                 volumen_toneladas = toneladas,
-                monto_total = monto
+                monto_total = monto,
+                capturista_correo = correo
             )
             repository.registrarCompra(fechaHoy, nuevaCompra)
         }

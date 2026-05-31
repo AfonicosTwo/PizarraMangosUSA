@@ -32,10 +32,45 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: 
     val totalToneladas by viewModel.totalToneladas.collectAsState()
     val totalDinero by viewModel.totalDinero.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val correoActual = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email ?: "Usuario Desconocido"
     val metaToneladas by viewModel.metaToneladas.collectAsState()
     var mostrarDialogo by remember { mutableStateOf(false) }
     var compraAEditar by remember { mutableStateOf<com.afonicos.pizarramangosusa.model.CompraTransaccion?>(null) }
     var mostrarPerfil by remember { mutableStateOf(false) }
+
+
+    // 1. Control del permiso de notificaciones
+    var permisoConcedido by remember {
+        mutableStateOf(
+            android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ||
+                    androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val lanzadorPermisos = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+        onResult = { concedido -> permisoConcedido = concedido }
+    )
+
+    // Solicitar el permiso al abrir la pantalla si aún no se tiene
+    LaunchedEffect(Unit) {
+        if (!permisoConcedido && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            lanzadorPermisos.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // 2. Disparador de la notificación al alcanzar la meta
+    var notificacionEnviada by remember { mutableStateOf(false) }
+
+    LaunchedEffect(totalToneladas, metaToneladas) {
+        if (metaToneladas > 0 && totalToneladas >= metaToneladas && !notificacionEnviada && permisoConcedido) {
+            mostrarNotificacionMeta(context)
+            notificacionEnviada = true // Bloqueamos para que no se envíe la notificación cada vez que se agregue una compra nueva
+        }
+    }
+
+
+
 
     Scaffold(
         topBar = {
@@ -66,6 +101,8 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: 
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                  //share
                     FloatingActionButton(
                         onClick = {
                             val fechaHoy = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
@@ -121,9 +158,18 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: 
                     }
                 }
 
-                // CONTENEDOR DERECHO: AGREGAR TRANSACCIÓN
-                FloatingActionButton(onClick = { mostrarDialogo = true }) {
-                    Text("+", fontSize = 24.sp)
+                //  TRANSACCIÓN
+                FloatingActionButton(
+                    onClick = { mostrarDialogo = true },
+                    containerColor = Color(0xFFFFEB3B), // Tono amarillo para el fondo
+                    contentColor = Color.Black
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.manguito),
+                        contentDescription = "Agregar transacción",
+                        modifier = Modifier.size(45.dp),
+                        tint = Color.Unspecified // Esta instrucción permite que la imagen conserve sus colores originales
+                    )
                 }
             }
         }
@@ -138,7 +184,8 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: 
             var mostrarDialogoMeta by remember { mutableStateOf(false) }
 
             val progreso = if (metaToneladas > 0) (totalToneladas / metaToneladas).toFloat() else 0f
-
+            val formatoMoneda = remember { java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "US")) }
+            val formatoDecimal = remember { java.text.NumberFormat.getNumberInstance(java.util.Locale("en", "US")).apply { maximumFractionDigits = 2 } }
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -154,17 +201,23 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: 
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column {
+                        // El modificador weight(1f) distribuye el espacio a la mitad exacta
+                        Column(modifier = Modifier.weight(1f)) {
                             Text("Total / Meta", style = MaterialTheme.typography.labelMedium)
                             Text(
-                                text = "${totalToneladas} / ${if (metaToneladas > 0) metaToneladas else "?"} T",
+                                text = "${formatoDecimal.format(totalToneladas)} / ${if (metaToneladas > 0) formatoDecimal.format(metaToneladas) else "?"} T",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
+                                fontSize = 18.sp // Reducción sutil del tamaño de fuente
                             )
                         }
-                        Column(horizontalAlignment = Alignment.End) {
+                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                             Text("Inversión del Día", style = MaterialTheme.typography.labelMedium)
-                            Text("$$totalDinero", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = formatoMoneda.format(totalDinero),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
 
@@ -255,7 +308,7 @@ fun PizarraScreen(viewModel: MangosViewModel, userRole: String, onProfileClick: 
             FormularioCompraDialog(
                 alCerrar = { mostrarDialogo = false },
                 alGuardar = { proveedor, toneladas, monto ->
-                    viewModel.registrarNuevaCompra(proveedor, toneladas, monto)
+                    viewModel.registrarNuevaCompra(proveedor, toneladas, monto,correoActual)
                 }
             )
         }
@@ -412,6 +465,11 @@ fun TarjetaTransaccionSwipeable(
                 Column {
                     Text(text = compra.proveedor, fontWeight = FontWeight.Bold)
                     Text(text = "$${compra.monto_total}", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Capturó: ${compra.capturista_correo}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
                 }
                 Text(
                     text = "${compra.volumen_toneladas} T",
@@ -711,4 +769,29 @@ fun descargarYExportarHistorial(
         .addOnFailureListener {
             android.widget.Toast.makeText(context, "Error de red al buscar historial", android.widget.Toast.LENGTH_SHORT).show()
         }
+}
+
+fun mostrarNotificacionMeta(context: android.content.Context) {
+    val canalId = "canal_mangos_usa"
+    val administradorNotificaciones = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+
+    // Es obligatorio crear un canal de notificación para dispositivos con Android 8.0 o superior
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        val canal = android.app.NotificationChannel(
+            canalId,
+            "Notificaciones de Metas Diarias",
+            android.app.NotificationManager.IMPORTANCE_HIGH
+        )
+        administradorNotificaciones.createNotificationChannel(canal)
+    }
+
+    val notificacion = androidx.core.app.NotificationCompat.Builder(context, canalId)
+        .setSmallIcon(R.drawable.manguito) // Su nuevo logotipo
+        .setContentTitle("¡Meta Diaria Alcanzada!")
+        .setContentText("Hemos llegado a la meta diaria cotizada en Mangos U.S.A. Muchas gracias por el esfuerzo.")
+        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+        .setAutoCancel(true)
+        .build()
+
+    administradorNotificaciones.notify(1001, notificacion)
 }

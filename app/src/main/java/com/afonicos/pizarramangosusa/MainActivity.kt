@@ -38,7 +38,6 @@ class MainActivity : ComponentActivity() {
                     // Nueva variable para mostrar pantalla de carga mientras buscamos el rol
                     var isCheckingRole by remember { mutableStateOf(auth.currentUser != null) }
 
-                    // SOLUCIÓN PUNTO 4: Recuperar el rol silenciosamente si ya hay sesión iniciada
                     LaunchedEffect(auth.currentUser) {
                         if (auth.currentUser != null) {
                             val db = FirebaseFirestore.getInstance()
@@ -103,7 +102,7 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp)
-            .verticalScroll(rememberScrollState()), // SOLUCIÓN PUNTO 5: Permite que la pantalla se deslice si estorba el teclado
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -146,7 +145,6 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
             singleLine = true
         )
 
-        // SOLUCIÓN PUNTO 5: Reservamos el espacio para el error con un Box fijo
         Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
             if (errorMessage != null) {
                 Text(text = errorMessage!!, color = Color.Red, fontWeight = FontWeight.Bold)
@@ -169,10 +167,29 @@ fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: (String) -> Unit)
                             val userId = auth.currentUser?.uid
                             if (userId != null) {
                                 db.collection("usuarios").document(userId).get()
+                                db.collection("usuarios").document(userId).get()
                                     .addOnSuccessListener { document ->
-                                        isLoading = false
-                                        val rol = document.getString("rol") ?: "capturista"
-                                        onLoginSuccess(rol)
+                                        if (document.exists()) {
+                                            // El usuario ya existía en la base de datos, entra normal
+                                            isLoading = false
+                                            val rol = document.getString("rol") ?: "capturista"
+                                            onLoginSuccess(rol)
+                                        } else {
+                                            // AUTO-REGISTRO: Es su primera vez iniciando sesión
+                                            val datosNuevoUsuario = hashMapOf(
+                                                "correo" to email.trim(),
+                                                "rol" to "capturista"
+                                            )
+                                            db.collection("usuarios").document(userId).set(datosNuevoUsuario)
+                                                .addOnSuccessListener {
+                                                    isLoading = false
+                                                    onLoginSuccess("capturista") // Entra como capturista por defecto
+                                                }
+                                                .addOnFailureListener {
+                                                    isLoading = false
+                                                    errorMessage = "Error al registrar en base de datos."
+                                                }
+                                        }
                                     }
                                     .addOnFailureListener {
                                         isLoading = false
